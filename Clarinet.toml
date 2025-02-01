@@ -12,6 +12,10 @@ depends_on = []
 path = "contracts/governance-token.clar"
 depends_on = []
 
+[contracts.impact-projects]
+path = "contracts/impact-projects.clar"
+depends_on = []
+
 [repl]
 costs_version = 2
 parser_version = 2
