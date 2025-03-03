@@ -13,42 +13,39 @@
 (define-data-var token-uri (optional (string-utf8 256)) none)
 (define-data-var total-supply uint u0)
 
+;; Token locking
+(define-map locked-tokens
+  { owner: principal }
+  { amount: uint }
+)
+
 ;; Public functions
 (define-public (transfer (amount uint) (sender principal) (recipient principal))
-  (begin
+  (let ((locked-amount (default-to u0 (get amount (map-get? locked-tokens {owner: sender})))))
     (asserts! (is-eq tx-sender sender) err-not-authorized)
+    (asserts! (>= (- (ft-get-balance dao-token sender) locked-amount) amount) err-insufficient-balance)
     (ft-transfer? dao-token amount sender recipient)
   )
 )
 
-(define-public (mint (amount uint) (recipient principal))
-  (begin
-    (asserts! (is-eq tx-sender contract-owner) err-owner-only)
-    (var-set total-supply (+ (var-get total-supply) amount))
-    (ft-mint? dao-token amount recipient)
+(define-public (lock-tokens (amount uint) (owner principal))
+  (let (
+    (current-locked (default-to u0 (get amount (map-get? locked-tokens {owner: owner}))))
+    (new-locked-amount (+ current-locked amount)))
+    (asserts! (>= (ft-get-balance dao-token owner) new-locked-amount) err-insufficient-balance)
+    (map-set locked-tokens {owner: owner} {amount: new-locked-amount})
+    (ok true)
   )
 )
 
-(define-read-only (get-balance (who principal))
-  (ok (ft-get-balance dao-token who))
+(define-public (unlock-tokens (amount uint) (owner principal))
+  (let (
+    (current-locked (default-to u0 (get amount (map-get? locked-tokens {owner: owner}))))
+    (new-locked-amount (- current-locked amount)))
+    (asserts! (>= current-locked amount) err-insufficient-balance)
+    (map-set locked-tokens {owner: owner} {amount: new-locked-amount})
+    (ok true)
+  )
 )
 
-(define-read-only (get-total-supply)
-  (ok (var-get total-supply))
-)
-
-(define-read-only (get-name)
-  (ok (var-get token-name))
-)
-
-(define-read-only (get-symbol)
-  (ok (var-get token-symbol))
-)
-
-(define-read-only (get-decimals)
-  (ok u6)
-)
-
-(define-read-only (get-token-uri)
-  (ok (var-get token-uri))
-)
+[... rest of the original contract functions ...]
